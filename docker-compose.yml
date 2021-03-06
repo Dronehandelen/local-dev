@@ -1,0 +1,260 @@
+version: "3.4"
+services:
+  postgres:
+    image: postgres:11-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./docker/postgres.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+
+  pubsub:
+    image: bigtruedata/gcloud-pubsub-emulator
+    command: start --host-port 0.0.0.0:8538
+
+  redis:
+    image: redis:alpine
+
+  proxy:
+    image: nginx:alpine
+    volumes:
+      - ./docker/proxy.nginx.d:/etc/nginx/conf.d
+      - ./data/proxy/cache:/data/nginx/cache
+      - ./data/nginx/ca:/etc/ca
+      - ./data/nginx/certs:/etc/ssl/private
+    ports:
+      - "80:80"
+      - "443:443"
+
+  frontend:
+    build:
+      context: ./sourcecode/frontend
+      dockerfile: Dockerfile
+      target: dev
+    environment:
+      CLIENT_PUBLIC_PATH: https://frontend.local.dronehandelen.no/
+      PUBLIC_PATH: https://frontend.local.dronehandelen.no/
+    volumes:
+      - ./data/frontend/node_modules:/app/node_modules
+      - ./sourcecode/frontend/public:/app/public
+      - ./sourcecode/frontend/src:/app/src
+      - ./sourcecode/frontend/build-config:/app/build-config
+      - ./sourcecode/frontend/razzle.config.js:/app/razzle.config.js
+      - ./sourcecode/frontend/package.json:/app/package.json
+      - ./sourcecode/frontend/yarn.lock:/app/yarn.lock
+
+  admin-frontend:
+    build:
+      context: ./sourcecode/admin-frontend
+      dockerfile: Dockerfile
+      target: dev
+    volumes:
+      - ./data/admin-frontend/node_modules:/app/node_modules
+      - ./sourcecode/admin-frontend/public:/app/public
+      - ./sourcecode/admin-frontend/src:/app/src
+      - ./sourcecode/admin-frontend/package.json:/app/package.json
+      - ./sourcecode/admin-frontend/yarn.lock:/app/yarn.lock
+
+  api:
+    build:
+      context: ./sourcecode/api
+      dockerfile: Dockerfile
+      target: dev
+    environment:
+      LOG_REQUESTS: "0"
+      PUBSUB_EMULATOR_HOST: pubsub:8538
+      REDIS_URL: redis://redis
+    volumes:
+      - ./sourcecode/api/src:/app/src
+      - ./data/api/node_modules:/app/node_modules
+      - ./data/api/emails:/app/emails
+      - ./sourcecode/api/package.json:/app/package.json
+      - ./sourcecode/api/yarn.lock:/app/yarn.lock
+      - ./sourcecode/api/.env.defaults:/app/.env.defaults
+
+  recommender:
+    build:
+      context: ./sourcecode/recommender
+      dockerfile: Dockerfile
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: ./creds.json
+      ENV_NAME: production
+    volumes:
+      - ./sourcecode/recommender/app:/usr/src/app/app
+      - ./sourcecode/recommender/requirements.txt:/usr/src/app/requirements.txt
+      - ./sourcecode/recommender/run.py:/usr/src/app/run.py
+
+  new-succeeded-order-create-receipt:
+    build:
+      context: ./sourcecode/api
+      dockerfile: Dockerfile
+      target: dev
+    command:
+      - nodemon
+      - ./src/subscribers/index.js
+      - newSucceededOrder_createReceipt
+    environment:
+      LOG_REQUESTS: "0"
+      PUBSUB_EMULATOR_HOST: pubsub:8538
+      REDIS_URL: redis://redis
+    volumes:
+      - ./sourcecode/api/src:/app/src
+      - ./data/api/node_modules:/app/node_modules
+      - ./data/api/emails:/app/emails
+      - ./sourcecode/api/package.json:/app/package.json
+      - ./sourcecode/api/yarn.lock:/app/yarn.lock
+      - ./sourcecode/api/.env.defaults:/app/.env.defaults
+    depends_on:
+      - api
+
+  cron-create-recommender-data:
+    build:
+      context: ./sourcecode/api
+      dockerfile: Dockerfile
+      target: dev
+    command: "node ./src/crons createRecommenderData"
+    environment:
+      LOG_REQUESTS: "0"
+      PUBSUB_EMULATOR_HOST: pubsub:8538
+      REDIS_URL: redis://redis
+    volumes:
+      - ./sourcecode/api/src:/app/src
+      - ./data/api/node_modules:/app/node_modules
+      - ./data/api/emails:/app/emails
+      - ./sourcecode/api/package.json:/app/package.json
+      - ./sourcecode/api/yarn.lock:/app/yarn.lock
+      - ./sourcecode/api/.env.defaults:/app/.env.defaults
+    depends_on:
+      - api
+
+  new-succeeded-order-email:
+    build:
+      context: ./sourcecode/api
+      dockerfile: Dockerfile
+      target: dev
+    command:
+      - nodemon
+      - ./src/subscribers/index.js
+      - newSucceededOrder_email
+    environment:
+      LOG_REQUESTS: "0"
+      PUBSUB_EMULATOR_HOST: pubsub:8538
+      REDIS_URL: redis://redis
+    volumes:
+      - ./sourcecode/api/src:/app/src
+      - ./data/api/node_modules:/app/node_modules
+      - ./data/api/emails:/app/emails
+      - ./sourcecode/api/package.json:/app/package.json
+      - ./sourcecode/api/yarn.lock:/app/yarn.lock
+      - ./sourcecode/api/.env.defaults:/app/.env.defaults
+    depends_on:
+      - api
+
+  new-succeeded-order-slack:
+    build:
+      context: ./sourcecode/api
+      dockerfile: Dockerfile
+      target: dev
+    command:
+      - nodemon
+      - ./src/subscribers/index.js
+      - newSucceededOrder_slack
+    environment:
+      LOG_REQUESTS: "0"
+      PUBSUB_EMULATOR_HOST: pubsub:8538
+      REDIS_URL: redis://redis
+    volumes:
+      - ./sourcecode/api/src:/app/src
+      - ./data/api/node_modules:/app/node_modules
+      - ./data/api/emails:/app/emails
+      - ./sourcecode/api/package.json:/app/package.json
+      - ./sourcecode/api/yarn.lock:/app/yarn.lock
+      - ./sourcecode/api/.env.defaults:/app/.env.defaults
+    depends_on:
+      - api
+
+  new-succeeded-order-reward:
+    build:
+      context: ./sourcecode/api
+      dockerfile: Dockerfile
+      target: dev
+    command:
+      - nodemon
+      - ./src/subscribers/index.js
+      - newSucceededOrder_reward
+    environment:
+      LOG_REQUESTS: "0"
+      PUBSUB_EMULATOR_HOST: pubsub:8538
+      REDIS_URL: redis://redis
+    volumes:
+      - ./sourcecode/api/src:/app/src
+      - ./data/api/node_modules:/app/node_modules
+      - ./data/api/emails:/app/emails
+      - ./sourcecode/api/package.json:/app/package.json
+      - ./sourcecode/api/yarn.lock:/app/yarn.lock
+      - ./sourcecode/api/.env.defaults:/app/.env.defaults
+    depends_on:
+      - api
+
+  order-bring-delivery-create-new:
+    build:
+      context: ./sourcecode/api
+      dockerfile: Dockerfile
+      target: dev
+    command:
+      - nodemon
+      - ./src/subscribers/index.js
+      - orderBringDelivery_createNew
+    environment:
+      LOG_REQUESTS: "0"
+      PUBSUB_EMULATOR_HOST: pubsub:8538
+      REDIS_URL: redis://redis
+    volumes:
+      - ./sourcecode/api/src:/app/src
+      - ./data/api/node_modules:/app/node_modules
+      - ./data/api/emails:/app/emails
+      - ./sourcecode/api/package.json:/app/package.json
+      - ./sourcecode/api/yarn.lock:/app/yarn.lock
+      - ./sourcecode/api/.env.defaults:/app/.env.defaults
+    depends_on:
+      - api
+
+  new-vipps-settlement-send-to-fiken:
+    build:
+      context: ./sourcecode/fiken
+      dockerfile: Dockerfile
+      target: dev
+    command:
+      - /bin/bash
+      - -c
+      - yarn; nodemon ./src/subscribers/index.js newVippsSettlement_fiken
+    environment:
+      LOG_REQUESTS: "0"
+      PUBSUB_EMULATOR_HOST: pubsub:8538
+      REDIS_URL: redis://redis
+    volumes:
+      - ./sourcecode/fiken/src:/app/src
+      - ./data/fiken/node_modules:/app/node_modules
+      - ./sourcecode/fiken/package.json:/app/package.json
+      - ./sourcecode/fiken/yarn.lock:/app/yarn.lock
+      - ./sourcecode/fiken/.env.defaults:/app/.env.defaults
+    depends_on:
+      - pubsub
+
+  cdn:
+    build:
+      context: ./sourcecode/cdn
+      dockerfile: Dockerfile
+      target: dev
+    environment:
+      LOG_REQUESTS: "0"
+      PUBSUB_EMULATOR_HOST: pubsub:8538
+    volumes:
+      - ./sourcecode/cdn/src:/app/src
+      - ./data/cdn/node_modules:/app/node_modules
+      - ./data/cdn/storage:/app/storage
+      - ./sourcecode/cdn/package.json:/app/package.json
+      - ./sourcecode/cdn/yarn.lock:/app/yarn.lock
