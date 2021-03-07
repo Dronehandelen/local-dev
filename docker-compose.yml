@@ -46,17 +46,17 @@ services:
       - ./sourcecode/frontend/package.json:/app/package.json
       - ./sourcecode/frontend/yarn.lock:/app/yarn.lock
 
-  admin-frontend:
+  frontend-admin:
     build:
-      context: ./sourcecode/admin-frontend
+      context: sourcecode/frontend-admin
       dockerfile: Dockerfile
       target: dev
     volumes:
-      - ./data/admin-frontend/node_modules:/app/node_modules
-      - ./sourcecode/admin-frontend/public:/app/public
-      - ./sourcecode/admin-frontend/src:/app/src
-      - ./sourcecode/admin-frontend/package.json:/app/package.json
-      - ./sourcecode/admin-frontend/yarn.lock:/app/yarn.lock
+      - ./data/frontend-admin/node_modules:/app/node_modules
+      - ./sourcecode/frontend-admin/public:/app/public
+      - ./sourcecode/frontend-admin/src:/app/src
+      - ./sourcecode/frontend-admin/package.json:/app/package.json
+      - ./sourcecode/frontend-admin/yarn.lock:/app/yarn.lock
 
   api:
     build:

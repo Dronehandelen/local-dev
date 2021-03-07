@@ -7,8 +7,8 @@ cd ../
 mkdir -p sourcecode
 cd sourcecode
 
-if [ ! -d "admin-frontend" ];then
-  git clone git@bitbucket.org:norfpv/admin-frontend.git
+if [ ! -d "frontend-admin" ];then
+  git clone git@github.com:Dronehandelen/frontend-admin.git
 fi
 
 if [ ! -d "frontend" ];then
@@ -20,7 +20,7 @@ if [ ! -d "api" ];then
 fi
 
 if [ ! -d "cdn" ];then
-  git clone git@bitbucket.org:norfpv/cdn.git
+  git clone git@github.com:Dronehandelen/cdn.git
 fi
 
 if [ ! -d "document-printer" ];then
