@@ -2,4 +2,4 @@
 /data
 /cloud_sql_proxy
 /sourcecode
-/.env
+/app.env
