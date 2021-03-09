@@ -13,7 +13,7 @@ pushd frontend
 yarn
 popd
 
-pushd admin-frontend
+pushd frontend-admin
 yarn
 popd
 
