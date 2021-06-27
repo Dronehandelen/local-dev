@@ -45,6 +45,8 @@ services:
       - ./sourcecode/frontend/src:/app/src
       - ./sourcecode/frontend/build-config:/app/build-config
       - ./sourcecode/frontend/razzle.config.js:/app/razzle.config.js
+      - ./sourcecode/frontend/.babelrc:/app/.babelrc
+      - ./sourcecode/frontend/.eslintrc.json:/app/.eslintrc.json
       - ./sourcecode/frontend/package.json:/app/package.json
       - ./sourcecode/frontend/yarn.lock:/app/yarn.lock
 
@@ -81,6 +83,25 @@ services:
       - ./sourcecode/api/yarn.lock:/app/yarn.lock
       - ./sourcecode/api/.env.defaults:/app/.env.defaults
 
+  api-deploy:
+    build:
+      context: ./sourcecode/api
+      dockerfile: Dockerfile
+      target: deploy
+    env_file:
+      - ./app.env
+    environment:
+      LOG_REQUESTS: "0"
+      PUBSUB_EMULATOR_HOST: pubsub:8538
+      REDIS_URL: redis://redis
+    volumes:
+      - ./sourcecode/api/src:/app/src
+      - ./data/api/node_modules_deploy:/app/node_modules
+      - ./data/api/emails:/app/emails
+      - ./sourcecode/api/package.json:/app/package.json
+      - ./sourcecode/api/yarn.lock:/app/yarn.lock
+      - ./sourcecode/api/.env.defaults:/app/.env.defaults
+
   recommender:
     build:
       context: ./sourcecode/recommender
@@ -100,10 +121,7 @@ services:
       context: ./sourcecode/api
       dockerfile: Dockerfile
       target: dev
-    command:
-      - nodemon
-      - ./src/subscribers/index.js
-      - newSucceededOrder_createReceipt
+    command: /bin/sh -c "/start-scripts/wait-for-multiple.sh api:80; nodemon ./src/subscribers/index.js newSucceededOrder_createReceipt"
     env_file:
       - ./app.env
     environment:
@@ -117,6 +135,30 @@ services:
       - ./sourcecode/api/package.json:/app/package.json
       - ./sourcecode/api/yarn.lock:/app/yarn.lock
       - ./sourcecode/api/.env.defaults:/app/.env.defaults
+      - ./docker/helpers/start-scripts:/start-scripts
+    depends_on:
+      - api
+
+  api-common-subscriber:
+    build:
+      context: ./sourcecode/api
+      dockerfile: Dockerfile
+      target: dev
+    command: /bin/sh -c "/start-scripts/wait-for-multiple.sh api:80; nodemon ./src/subscribers/index.js common"
+    env_file:
+      - ./app.env
+    environment:
+      LOG_REQUESTS: "0"
+      PUBSUB_EMULATOR_HOST: pubsub:8538
+      REDIS_URL: redis://redis
+    volumes:
+      - ./sourcecode/api/src:/app/src
+      - ./data/api/node_modules:/app/node_modules
+      - ./data/api/emails:/app/emails
+      - ./sourcecode/api/package.json:/app/package.json
+      - ./sourcecode/api/yarn.lock:/app/yarn.lock
+      - ./sourcecode/api/.env.defaults:/app/.env.defaults
+      - ./docker/helpers/start-scripts:/start-scripts
     depends_on:
       - api
 
@@ -125,7 +167,7 @@ services:
       context: ./sourcecode/api
       dockerfile: Dockerfile
       target: dev
-    command: "node ./src/crons createRecommenderData"
+    command: /bin/sh -c "/start-scripts/wait-for-multiple.sh api:80; node ./src/crons createRecommenderData"
     environment:
       LOG_REQUESTS: "0"
       PUBSUB_EMULATOR_HOST: pubsub:8538
@@ -139,6 +181,7 @@ services:
       - ./sourcecode/api/package.json:/app/package.json
       - ./sourcecode/api/yarn.lock:/app/yarn.lock
       - ./sourcecode/api/.env.defaults:/app/.env.defaults
+      - ./docker/helpers/start-scripts:/start-scripts
     depends_on:
       - api
 
@@ -147,10 +190,7 @@ services:
       context: ./sourcecode/api
       dockerfile: Dockerfile
       target: dev
-    command:
-      - nodemon
-      - ./src/subscribers/index.js
-      - newSucceededOrder_email
+    command: /bin/sh -c "/start-scripts/wait-for-multiple.sh api:80; nodemon ./src/subscribers/index.js newSucceededOrder_email"
     environment:
       LOG_REQUESTS: "0"
       PUBSUB_EMULATOR_HOST: pubsub:8538
@@ -164,6 +204,7 @@ services:
       - ./sourcecode/api/package.json:/app/package.json
       - ./sourcecode/api/yarn.lock:/app/yarn.lock
       - ./sourcecode/api/.env.defaults:/app/.env.defaults
+      - ./docker/helpers/start-scripts:/start-scripts
     depends_on:
       - api
 
@@ -172,10 +213,7 @@ services:
       context: ./sourcecode/api
       dockerfile: Dockerfile
       target: dev
-    command:
-      - nodemon
-      - ./src/subscribers/index.js
-      - newSucceededOrder_slack
+    command: /bin/sh -c "/start-scripts/wait-for-multiple.sh api:80; nodemon ./src/subscribers/index.js newSucceededOrder_slack"
     environment:
       LOG_REQUESTS: "0"
       PUBSUB_EMULATOR_HOST: pubsub:8538
@@ -222,10 +260,7 @@ services:
       context: ./sourcecode/api
       dockerfile: Dockerfile
       target: dev
-    command:
-      - nodemon
-      - ./src/subscribers/index.js
-      - orderBringDelivery_createNew
+    command: /bin/sh -c "/start-scripts/wait-for-multiple.sh api:80; nodemon ./src/subscribers/index.js orderBringDelivery_createNew"
     environment:
       LOG_REQUESTS: "0"
       PUBSUB_EMULATOR_HOST: pubsub:8538
@@ -239,6 +274,7 @@ services:
       - ./sourcecode/api/package.json:/app/package.json
       - ./sourcecode/api/yarn.lock:/app/yarn.lock
       - ./sourcecode/api/.env.defaults:/app/.env.defaults
+      - ./docker/helpers/start-scripts:/start-scripts
     depends_on:
       - api
 
